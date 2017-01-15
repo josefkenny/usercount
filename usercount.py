@@ -208,6 +208,6 @@ toot_text += weekly_change_string
 print "Tooting..." 
 print toot_text
 
-# mastodon.status_post(toot_text, in_reply_to_id=None, media_ids=[media_dict] )
+mastodon.status_post(toot_text, in_reply_to_id=None, media_ids=[media_dict] )
 
 print "Successfully tooted!"
