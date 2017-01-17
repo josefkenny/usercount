@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import requests
 from six.moves import urllib
 from datetime import datetime
 from subprocess import call
@@ -13,7 +12,27 @@ import json
 import time
 import signal
 import sys
-import os.path      # For checking whether secrets file exists
+import os.path        # For checking whether secrets file exists
+import requests       # For doing the web stuff, dummy!
+
+
+###############################################################################
+# INITIALISATION
+###############################################################################
+
+do_upload = True
+# Run without uploading, if specified
+if '--no-upload' in sys.argv:
+    do_upload = False
+
+# Check mastostats.csv exists, if not, create it
+if not os.path.isfile("mastostats.csv"):    
+        print("mastostats.csv does not exist, creating it...")
+
+        # Create CSV header row
+        with open("mastostats.csv", "w") as myfile:
+            myfile.write("timestamp,usercount,tootscount\n")
+        myfile.close()
 
 # Returns the parameter from the specified file
 def get_parameter( parameter, file_path ):
@@ -32,27 +51,17 @@ def get_parameter( parameter, file_path ):
     print(file_path + "  Missing parameter %s "%parameter)
     sys.exit(0)
 
-
-
-# Load secrets from file, in format
-# uc_client_id: "<Client ID>"
-# uc_client_secret: "<Client Secret>"
-# uc_access_token: "<Access Token>"
-
+# Load secrets from secrets file
 secrets_filepath = "secrets/secrets.txt"
-
 uc_client_id     = get_parameter("uc_client_id",     secrets_filepath)
 uc_client_secret = get_parameter("uc_client_secret", secrets_filepath)
 uc_access_token  = get_parameter("uc_access_token",  secrets_filepath)
 
-# Load configuration from file
-
+# Load configuration from config file
 config_filepath = "config.txt"
-
 mastodon_hostname = get_parameter("mastodon_hostname", config_filepath) # E.g., mastodon.social
 
-
-# Initialise mastodon API
+# Initialise Mastodon API
 mastodon = Mastodon(
     client_id = uc_client_id,
     client_secret = uc_client_secret,
@@ -62,90 +71,66 @@ mastodon = Mastodon(
 # Initialise access headers
 headers={ 'Authorization': 'Bearer %s'%uc_access_token }
 
-requestDelay = 3
 
-steps = 0
+###############################################################################
+# GET THE DATA
+###############################################################################
 
-stepsize = 250
+# Get current timestamp
+ts = int(time.time())
 
+# Get the /about/more page from the server
+page = requests.get('https://' + mastodon_hostname + '/about/more')
+
+# We could use lxml's html parser, but that requires loads of packages to be
+# installed, as it's all C bindings and stuff. So we're gonna do it in a
+# really quick and horrible way! 
+
+# Returns the substring of s which is between substring1 and substring2
+def get_between(s, substring1, substring2):
+    return s[(s.index(substring1)+len(substring1)):s.index(substring2)]
+
+# Remove newlines to make our life easier
+pagecontent = page.content.replace("\n", "")
+
+# Get the number of users, removing commas
+current_id = int( get_between(pagecontent, "Home to</span><strong>", "</strong><span>users").replace(",", ""))
+
+# Get the number of toots, removing commas
+num_toots = int (get_between(pagecontent, "Who authored</span><strong>", "</strong><span>statuses").replace(",", ""))
+
+print("Number of users: %s "% current_id)
+print("Number of toots: %s "% num_toots )
+
+###############################################################################
+# LOG THE DATA
+###############################################################################
+
+# Append to CSV file
+with open("mastostats.csv", "a") as myfile:
+    myfile.write(str(ts) + "," + str(current_id) + "," + str(num_toots) + "\n")
+
+
+###############################################################################
+# WORK OUT THE TOOT TEXT
+###############################################################################
+
+# Load CSV file
+with open('mastostats.csv') as f:
+    usercount_dict = [{k: int(v) for k, v in row.items()}
+        for row in csv.DictReader(f, skipinitialspace=True)]
 
 # Returns the timestamp,usercount pair which is closest to the specified timestamp
 def find_closest_timestamp( input_dict, seek_timestamp ):
     a = []
     for item in input_dict:
         a.append( item['timestamp'] )
-
     return input_dict[ min(range(len(a)), key=lambda i: abs(a[i]-seek_timestamp)) ]
-
-
-
-# Returns true if the specified user_id exists
-def user_exists( user_id ):
-    print("Checking %s"%user_id)
-    url = 'https://' + mastodon_hostname + '/api/v1/accounts/' + str(user_id)
-
-    # Loop until we get a non-error result (including server & connection errors)
-    while True:
-        try:
-            time.sleep(requestDelay)
-            response = requests.get(url, headers=headers)
-            print("Response: \n\n" + response.text)
-            break
-        except requests.exceptions.RequestException as e:
-            print("Error getting user_id %s"%user_id + " exception: " + e)
-        
-    if ("Record not found" not in response.text):
-        return True
-    return False
-
-# Load 'highest known ID' from the last line of usercount.csv
-# timestamp,usercount
-with open('usercount.csv') as f:
-  last = None
-  for line in (line for line in f if line.rstrip('\n')):
-    last = line
-
-highest_known_id = int( last.split(",",1)[1] )
-
-current_id = highest_known_id
-
-while stepsize > 1:
-    steps += 1
-    print "Testing user %d"%(current_id + stepsize)
-    if user_exists( current_id  + stepsize ):
-        current_id = current_id + stepsize
-        print "User exists at %d"%current_id
-        print ""
-        continue
-    else:
-        stepsize = stepsize / 2
-        print "No user at %d"%(current_id + stepsize)
-        print "Changing stepsize to %d"%stepsize
-        print ""
-        continue
-
-
-
-ts = int(time.time())
-
-print "Timestamp: %d"%ts
-print "Newest mastodon.social user: %d"%current_id
-print "Found the highest user in %d steps"%steps
-
-
-# Append to CSV file
-with open("usercount.csv", "a") as myfile:
-    myfile.write(str(ts) + "," + str(current_id) + "\n")
-
-# Load CSV file
-with open('usercount.csv') as f:
-    usercount_dict = [{k: int(v) for k, v in row.items()}
-        for row in csv.DictReader(f, skipinitialspace=True)]
 
 
 # Calculate difference in times
 hourly_change_string = ""
-daily_change_string = ""
+daily_change_string  = ""
 weekly_change_string = ""
 
 one_hour = 60 * 60
@@ -180,34 +165,38 @@ if len(usercount_dict) > 168:
         weekly_change_string = "+" + format(weekly_change, ",d") + " in the last week\n"
 
 
+###############################################################################
+# CREATE AND UPLOAD THE CHART
+###############################################################################
+
 # Generate chart
 call(["gnuplot", "generate.gnuplot"])
 
 
-# Upload chart
-file_to_upload = 'graph.png'
-print "Uploading %s..."%file_to_upload
-media_dict = mastodon.media_post(file_to_upload)
+if do_upload:
+    # Upload chart
+    file_to_upload = 'graph.png'
 
-print "Uploaded file, returned:"
-print str(media_dict)
+    print "Uploading %s..."%file_to_upload
+    media_dict = mastodon.media_post(file_to_upload)
 
-# Finally, do the toot
-#
-# 16,560 mastodon.social accounts
-# +12 in the last hour
-# +563 in the last 24 hours
-# 
-# (plus image URL)
+    print "Uploaded file, returned:"
+    print str(media_dict)
 
-toot_text = format(current_id, ",d") + " accounts \n"
-toot_text += hourly_change_string
-toot_text += daily_change_string
-toot_text += weekly_change_string
+    ###############################################################################
+    # T  O  O  T !
+    ###############################################################################
 
-print "Tooting..." 
-print toot_text
+    toot_text = format(current_id, ",d") + " accounts \n"
+    toot_text += hourly_change_string
+    toot_text += daily_change_string
+    toot_text += weekly_change_string
 
-mastodon.status_post(toot_text, in_reply_to_id=None, media_ids=[media_dict] )
+    print "Tooting..." 
+    print toot_text
 
-print "Successfully tooted!"
+    mastodon.status_post(toot_text, in_reply_to_id=None, media_ids=[media_dict] )
+
+    print "Successfully tooted!"
+else:
+    print("--no-upload specified, so not uploading anything")
