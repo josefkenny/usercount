@@ -5,7 +5,7 @@ A bot which posts user statistics to [Mastodon](https://github.com/tootsuite/mas
 
 ### Dependencies
 
--   [gnuplot](http://www.gnuplot.info/)
+-   [gnuplot](http://www.gnuplot.info/) version 5 or greater
 -   [Mastodon.py](https://github.com/halcy/Mastodon.py): `pip install Mastodon.py`
 -   Everything else at the top of `usercount.py`!
 
