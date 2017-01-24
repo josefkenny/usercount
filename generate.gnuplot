@@ -140,7 +140,7 @@ set lmargin lmarg
 set rmargin rmarg
 
 # Set Y axis
-set yr [tootslow:tootshigh]
+set yr [0:tootshigh]
 set ylabel "Toots per hour" textcolor rgb "#E9967A"
 
 # Set X axis
