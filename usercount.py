@@ -65,7 +65,8 @@ mastodon_hostname = get_parameter("mastodon_hostname", config_filepath) # E.g., 
 mastodon = Mastodon(
     client_id = uc_client_id,
     client_secret = uc_client_secret,
-    access_token = uc_access_token
+    access_token = uc_access_token,
+    api_base_url = 'https://' + mastodon_hostname,
 )
 
 # Initialise access headers
