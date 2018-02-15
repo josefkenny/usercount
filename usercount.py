@@ -175,7 +175,7 @@ if do_upload:
     file_to_upload = 'graph.png'
 
     print "Uploading %s..."%file_to_upload
-    media_dict = mastodon.media_post(file_to_upload,"image/png")
+    media_dict = mastodon.media_post(file_to_upload)
 
     print "Uploaded file, returned:"
     print str(media_dict)
