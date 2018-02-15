@@ -15,7 +15,6 @@ import sys
 import os.path        # For checking whether secrets file exists
 import requests       # For doing the web stuff, dummy!
 
-
 ###############################################################################
 # INITIALISATION
 ###############################################################################
@@ -72,7 +71,6 @@ mastodon = Mastodon(
 # Initialise access headers
 headers={ 'Authorization': 'Bearer %s'%uc_access_token }
 
-
 ###############################################################################
 # GET THE DATA
 ###############################################################################
@@ -111,7 +109,6 @@ print("Number of toots: %s "% num_toots )
 with open("mastostats.csv", "a") as myfile:
     myfile.write(str(ts) + "," + str(current_id) + "," + str(num_toots) + "\n")
 
-
 ###############################################################################
 # WORK OUT THE TOOT TEXT
 ###############################################################################
@@ -127,7 +124,6 @@ def find_closest_timestamp( input_dict, seek_timestamp ):
     for item in input_dict:
         a.append( item['timestamp'] )
     return input_dict[ min(range(len(a)), key=lambda i: abs(a[i]-seek_timestamp)) ]
-
 
 # Calculate difference in times
 hourly_change_string = ""
@@ -179,7 +175,7 @@ if do_upload:
     file_to_upload = 'graph.png'
 
     print "Uploading %s..."%file_to_upload
-    media_dict = mastodon.media_post(file_to_upload,"image/png")
+    media_dict = mastodon.media_post(file_to_upload)
 
     print "Uploaded file, returned:"
     print str(media_dict)
@@ -201,3 +197,4 @@ if do_upload:
     print "Successfully tooted!"
 else:
     print("--no-upload specified, so not uploading anything")
+
