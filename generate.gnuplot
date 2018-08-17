@@ -98,7 +98,7 @@ set ylabel "Number of users" textcolor rgb "#93ddff" offset 1,0,0
 
 # Set Y2 axis
 set y2r [0:uc_derivative_high * 2]
-set y2tics 10 nomirror
+set y2tics floor(uc_derivative_high / 3) nomirror
 set y2label 'Hourly increase' textcolor rgb "#7ae9d8" 
 
 # Set X axis
