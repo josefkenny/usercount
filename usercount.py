@@ -80,28 +80,13 @@ headers={ 'Authorization': 'Bearer %s'%uc_access_token }
 # Get current timestamp
 ts = int(time.time())
 
-# Get the /about/more page from the server
-page = requests.get('https://' + mastodon_hostname + '/about/more')
-
-# We could use lxml's html parser, but that requires loads of packages to be
-# installed, as it's all C bindings and stuff. So we're gonna do it in a
-# really quick and horrible way! 
-
-# Returns the substring of s which is between substring1 and substring2
-def get_between(s, substring1, substring2):
-    return s[(s.index(substring1)+len(substring1)):s.index(substring2)]
-
-# Remove newlines to make our life easier
-pagecontent = page.content.replace("\n", "")
-
-# Get the number of users, removing commas
-current_id = int( get_between(pagecontent, "Home to</span><strong>", "</strong><span>users").replace(",", ""))
-
-# Get the number of toots, removing commas
-num_toots = int (get_between(pagecontent, "Who authored</span><strong>", "</strong><span>statuses").replace(",", ""))
+# Get the number of users and toots from the server
+page = requests.get('https://' + mastodon_hostname + '/api/v1/instance')
+current_id = page.json()['stats']['user_count']
+num_toots = page.json()['stats']['status_count']
 
 print("Number of users: %s "% current_id)
-print("Number of toots: %s "% num_toots )
+print("Number of toots: %s "% num_toots)
 
 ###############################################################################
 # LOG THE DATA
