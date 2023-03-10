@@ -90,7 +90,7 @@ def stats_to_image(siteName, csvName, ax):
 
     s = str(int(df['tootscount'].iloc[-1])) + ' toots'
     lastUsers = int(df['usercount'].iloc[-1])
-    s += ', ' + str(lastUsers) + ' accounts'
+    s += ', ' + str(lastUsers) + ' users'
 
     if (df.shape[0] >= 2):
         oneWeek = df.index.max() - dt.timedelta(days=7)
@@ -115,11 +115,11 @@ def stats_to_image(siteName, csvName, ax):
 
         try:
             s += ' +' + \
-                str(lastUsers - int(df['usercount'][oneWeek])) + ' last week'
+                str(lastUsers - int(df['usercount'][oneWeek])) + ' week'
             s += ' +' + \
-                str(lastUsers - int(df['usercount'][oneDay])) + ' last day'
+                str(lastUsers - int(df['usercount'][oneDay])) + ' day'
             s += ' +' + \
-                str(lastUsers - int(df['usercount'][oneHour])) + ' last hour'
+                str(lastUsers - int(df['usercount'][oneHour])) + ' hour'
         except:
             pass
 
@@ -163,7 +163,7 @@ def create_stats_toot(toot_text, mastodon_hostname, file_to_upload):
     ###############################################################################
     # T  O  O  T !
     ###############################################################################
-    print("Tooting...")
+    print("Tooting... " + str(len(toot_text)) + " chars")
     print(toot_text)
 
     mastodon.status_post(
