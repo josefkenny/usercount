@@ -1,10 +1,14 @@
 # Secrets!
-secrets/secrets.txt
+secrets/secrets.txt*
+secrets/passwd
+secrets/email
 
 # Generated files
 graph.png
-mastostats.csv
+mastostats*.csv
 usercount.csv
+
+git.diff.*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
