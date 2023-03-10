@@ -113,9 +113,12 @@ ts = int(time.time())
 # with open("mastostats.csv", "a") as myfile:
 #     myfile.write(str(ts) + "," + str(current_id) + "," + str(num_toots) + "\n")
 
-# other_mastodon_hostname = get_parameter(
-#     "other_mastodon_hostname", config_filepath)  # E.g., mastodon.social
-# other_hosts = other_mastodon_hostname.split(',')
+other_mastodon_hostname = get_parameter(
+    "other_mastodon_hostname", config_filepath)
+other_hosts = other_mastodon_hostname.split(',')
+hosts_data = [('tooot.im', 'mastostats.csv')] + \
+    [(h, "mastostats." + h + ".csv") for h in other_hosts]
+
 # for h in other_hosts:
 #     try:
 #         h_page = requests.get('https://' + h + '/api/v1/instance')
@@ -132,33 +135,41 @@ ts = int(time.time())
 ###############################################################################
 
 # df = DataFrame(np.random.randn(5, 3), columns=['A', 'B', 'C'])
-df = pd.read_csv('mastostats.csv', index_col='timestamp')
-df.index = pd.to_datetime(df.index, unit='s')
-fromtime = df.index.max() - dt.timedelta(days=7)
-df = df.resample('1h').ffill()
-for c in ['usercount', 'tootscount']:
-    df[c + 'Deriv'] = df[c].diff()
-df = df[(df.index >= fromtime)]
 
-fig, ax = plt.subplots()
-ax3 = ax.twinx()
-rspine = ax3.spines['right']
-rspine.set_position(('axes', 1.15))
-ax3.set_frame_on(True)
-ax3.patch.set_visible(False)
 
-df.usercount.plot(ax=ax, style='b-')
-df.usercountDeriv.plot(ax=ax, style='r-', secondary_y=True)
-df.tootscountDeriv.plot(ax=ax3, style='g-')
+def stats_to_image(siteName, csvName, ax):
+    print(siteName, csvName)
+    df = pd.read_csv(csvName, names=['timestamp', 'usercount', 'tootscount'],
+                     skiprows=1, index_col='timestamp', on_bad_lines='skip')
+    df.index = pd.to_datetime(df.index, unit='s')
+    fromtime = df.index.max() - dt.timedelta(days=7)
+    df = df.resample('1h').ffill()
+    for c in ['usercount', 'tootscount']:
+        df[c + 'Deriv'] = df[c].diff()
+    df = df[(df.index >= fromtime)]
 
-ax3.legend([ax.get_lines()[0], ax.right_ax.get_lines()[0], ax3.get_lines()[0]],\
-           ['usercount','usercountDeriv','tootscountDeriv'])
+    # ax = axs[i]
+    ax3 = ax.twinx()
+    ax3.spines['right'].set_position(('axes', 1.1))
+    ax3.set_frame_on(True)
+    ax3.patch.set_visible(False)
+    # fig.subplots_adjust(right=0.75)
+
+    df.usercount.plot(ax=ax, style='b-', xlabel='', ylabel=siteName)
+    df.usercountDeriv.plot(ax=ax, style='r-', secondary_y=True, xlabel='')
+    df.tootscountDeriv.plot(ax=ax3, style='g-', xlabel='')
+
+    ax3.legend([ax.get_lines()[0], ax.right_ax.get_lines()[0], ax3.get_lines()[0]],
+               ['usercount', 'usercountDeriv', 'tootscountDeriv'])
+    # ax.set_title(siteName)
+
+
+fig, axs = plt.subplots(int(len(hosts_data) / 2), 2,
+                        constrained_layout=True)
+for (i, (hostname, csvname)) in enumerate(hosts_data):
+    stats_to_image(hostname, csvname, axs[int(i/2), i % 2])
 plt.show()
 exit()
-
-
-
-
 
 
 # fig, ax = plt.subplots()
@@ -193,7 +204,8 @@ print(dfh)
 # df.usercount.plot(ax=ax, style='b-')
 # same ax as above since it's automatically added on the right
 # dfh.usercount.plot(ax=ax, style='r-', secondary_y=True)
-dfh.tootscount.plot(ax=df.usercount.plot(style='b-'), style='g-', secondary_y=True)
+dfh.tootscount.plot(ax=df.usercount.plot(style='b-'),
+                    style='g-', secondary_y=True)
 
 # add legend --> take advantage of pandas providing us access
 # to the line associated with the right part of the axis
