@@ -78,6 +78,13 @@ def fetch_data_and_write(hosts_data):
 ###############################################################################
 
 
+def text_inc(num, kind):
+    if num < 0:
+        return ' ' + str(num) + ' ' + kind
+    else:
+        return ' +' + str(num) + ' ' + kind
+
+
 def stats_to_image(siteName, csvName, ax):
     ax.yaxis.label.set_text(siteName)
     # print(siteName, csvName)
@@ -114,12 +121,9 @@ def stats_to_image(siteName, csvName, ax):
                    ['Number of users', 'User hourly increase', 'Toots per hour'])
 
         try:
-            s += ' +' + \
-                str(lastUsers - int(df['usercount'][oneWeek])) + ' week'
-            s += ' +' + \
-                str(lastUsers - int(df['usercount'][oneDay])) + ' day'
-            s += ' +' + \
-                str(lastUsers - int(df['usercount'][oneHour])) + ' hour'
+            s += text_inc(lastUsers - int(df['usercount'][oneWeek]), 'week')
+            s += text_inc(lastUsers - int(df['usercount'][oneDay]), 'day')
+            s += text_inc(lastUsers - int(df['usercount'][oneHour]), 'hour')
         except:
             pass
 
