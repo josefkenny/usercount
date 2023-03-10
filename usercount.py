@@ -22,6 +22,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
+import math
 
 ###############################################################################
 # INITIALISATION
@@ -78,46 +79,60 @@ def fetch_data_and_write(hosts_data):
 
 
 def stats_to_image(siteName, csvName, ax):
+    ax.yaxis.label.set_text(siteName)
     # print(siteName, csvName)
     df = pd.read_csv(csvName, names=['timestamp', 'usercount', 'tootscount'],
                      skiprows=1, index_col='timestamp', on_bad_lines='skip')
     df.index = pd.to_datetime(df.index, unit='s')
-    df = df.resample('1h').ffill()
-    oneWeek = df.index.max() - dt.timedelta(days=7)
-    oneDay = df.index.max() - dt.timedelta(days=1)
-    oneHour = df.index.max() - dt.timedelta(hours=1)
-    for c in ['usercount', 'tootscount']:
-        df[c + 'Deriv'] = df[c].diff()
-
-    ax3 = ax.twinx()
-    ax3.spines['right'].set_position(('axes', 1.1))
-    ax3.set_frame_on(True)
-    ax3.patch.set_visible(False)
-
-    dfweek = df[(df.index >= oneWeek)]
-    dfweek.usercount.plot(ax=ax, style='b-', xlabel='', ylabel=siteName)
-    dfweek.usercountDeriv.plot(ax=ax, style='r-', secondary_y=True, xlabel='')
-    dfweek.tootscountDeriv.plot(ax=ax3, style='g-', xlabel='')
-
-    ax3.legend([ax.get_lines()[0], ax.right_ax.get_lines()[0], ax3.get_lines()[0]],
-               ['Number of users', 'User hourly increase', 'Toots per hour'])
+    df = df.resample('1h').mean().ffill()
+    if (df.shape[0] == 0):
+        return 'no data yet'
 
     s = str(int(df['tootscount'].iloc[-1])) + ' toots'
     lastUsers = int(df['usercount'].iloc[-1])
-    s += '\n' + str(lastUsers) + ' accounts'
-    s += ' +' + str(lastUsers - int(df['usercount'][oneWeek])) + ' last week'
-    s += ' +' + str(lastUsers - int(df['usercount'][oneDay])) + ' last day'
-    s += ' +' + str(lastUsers - int(df['usercount'][oneHour])) + ' last hour'
+    s += ', ' + str(lastUsers) + ' accounts'
+
+    if (df.shape[0] >= 2):
+        oneWeek = df.index.max() - dt.timedelta(days=7)
+        oneDay = df.index.max() - dt.timedelta(days=1)
+        oneHour = df.index.max() - dt.timedelta(hours=1)
+        for c in ['usercount', 'tootscount']:
+            df[c + 'Deriv'] = df[c].diff()
+
+        ax3 = ax.twinx()
+        ax3.spines['right'].set_position(('axes', 1.1))
+        ax3.set_frame_on(True)
+        ax3.patch.set_visible(False)
+
+        dfweek = df[(df.index >= oneWeek)]
+        dfweek.usercount.plot(ax=ax, style='b-', xlabel='')
+        dfweek.usercountDeriv.plot(
+            ax=ax, style='r-', secondary_y=True, xlabel='')
+        dfweek.tootscountDeriv.plot(ax=ax3, style='g-', xlabel='')
+
+        ax3.legend([ax.get_lines()[0], ax.right_ax.get_lines()[0], ax3.get_lines()[0]],
+                   ['Number of users', 'User hourly increase', 'Toots per hour'])
+
+        try:
+            s += ' +' + \
+                str(lastUsers - int(df['usercount'][oneWeek])) + ' last week'
+            s += ' +' + \
+                str(lastUsers - int(df['usercount'][oneDay])) + ' last day'
+            s += ' +' + \
+                str(lastUsers - int(df['usercount'][oneHour])) + ' last hour'
+        except:
+            pass
+
     return s
 
 
 def generate_graph_and_msg(hosts_data, imageName):
-    fig, axs = plt.subplots(int(len(hosts_data) / 2), 2,
+    fig, axs = plt.subplots(int(math.ceil(len(hosts_data) / 3)), 3,
                             constrained_layout=True)
-    fig.set_size_inches(16, 12)
+    fig.set_size_inches(24, 12)
     msg = ''
     for (i, (hostname, csvname)) in enumerate(hosts_data):
-        s = stats_to_image(hostname, csvname, axs[int(i/2), i % 2])
+        s = stats_to_image(hostname, csvname, axs[int(i/3), i % 3])
         msg += hostname + ': ' + s + '\n'
     plt.savefig(imageName, dpi=100)
     return msg

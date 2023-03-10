@@ -1,1 +1,2 @@
-mastodon_hostname: mastodon.social
+mastodon_hostname: tooot.im
+other_mastodon_hostname: hayu.sh,leftodon.social,hed.im,pirsamti.com,kishkush.net,reshet.social,sloth.run,toot.org.il
