@@ -27,22 +27,11 @@ import datetime as dt
 # INITIALISATION
 ###############################################################################
 
-# Get current timestamp
-ts = int(time.time())
 
-# do_upload = True
-# # Run without uploading, if specified
-# if '--no-upload' in sys.argv:
-#     do_upload = False
-
-# do_fetch = True
-# # Run without fetching, if specified
-# if '--no-fetch' in sys.argv:
-#     do_fetch = False
-
-# Returns the parameter from the specified file
 def get_parameter(parameter, file_path):
-    # Check if secrets file exists
+    # Returns the parameter from the specified file
+
+    # Check if file exists
     if not os.path.isfile(file_path):
         print("File %s not found, exiting." % file_path)
         sys.exit(0)
@@ -58,12 +47,14 @@ def get_parameter(parameter, file_path):
     sys.exit(0)
 
 
-
 ###############################################################################
 # LOG THE DATA
 ###############################################################################
 
 def fetch_data_and_write(hosts_data):
+    # Get current timestamp
+    ts = int(time.time())
+
     for (i, (hostname, csvname)) in enumerate(hosts_data):
         try:
             stats = requests.get('https://' + hostname +
@@ -113,14 +104,14 @@ def stats_to_image(siteName, csvName, ax):
 
     s = str(int(df['tootscount'].iloc[-1])) + ' toots'
     lastUsers = int(df['usercount'].iloc[-1])
-    s += ' ' + str(lastUsers) + ' accounts'
+    s += '\n' + str(lastUsers) + ' accounts'
     s += ' +' + str(lastUsers - int(df['usercount'][oneWeek])) + ' last week'
     s += ' +' + str(lastUsers - int(df['usercount'][oneDay])) + ' last day'
     s += ' +' + str(lastUsers - int(df['usercount'][oneHour])) + ' last hour'
     return s
 
 
-def generate_graph_and_msg(hosts_data):
+def generate_graph_and_msg(hosts_data, imageName):
     fig, axs = plt.subplots(int(len(hosts_data) / 2), 2,
                             constrained_layout=True)
     fig.set_size_inches(16, 12)
@@ -128,8 +119,47 @@ def generate_graph_and_msg(hosts_data):
     for (i, (hostname, csvname)) in enumerate(hosts_data):
         s = stats_to_image(hostname, csvname, axs[int(i/2), i % 2])
         msg += hostname + ': ' + s + '\n'
-    plt.savefig('graph.png', dpi=100)
+    plt.savefig(imageName, dpi=100)
     return msg
+
+
+def create_stats_toot(toot_text, mastodon_hostname, file_to_upload):
+    # Load secrets from secrets file
+    secrets_filepath = "secrets/secrets.txt"
+    uc_client_id = get_parameter("uc_client_id",     secrets_filepath)
+    uc_client_secret = get_parameter("uc_client_secret", secrets_filepath)
+    uc_access_token = get_parameter("uc_access_token",  secrets_filepath)
+
+    # Initialise Mastodon API
+    mastodon = Mastodon(
+        client_id=uc_client_id,
+        client_secret=uc_client_secret,
+        access_token=uc_access_token,
+        api_base_url='https://' + mastodon_hostname,
+    )
+
+    # Upload chart
+    print("Uploading %s..." % file_to_upload)
+    media_dict = mastodon.media_post(file_to_upload, "image/png")
+
+    print("Uploaded file, returned:")
+    print(str(media_dict))
+
+    ###############################################################################
+    # T  O  O  T !
+    ###############################################################################
+    print("Tooting...")
+    print(toot_text)
+
+    mastodon.status_post(
+        toot_text,
+        in_reply_to_id=None,
+        media_ids=[media_dict],
+        sensitive=False,
+        visibility='unlisted')
+
+    print("Successfully tooted!")
+
 
 # Load configuration from config file
 config_filepath = "config.txt"
@@ -141,23 +171,20 @@ other_hosts = host_names_str.split(',')
 hosts_data = [(mastodon_hostname, 'mastostats.csv')]
 hosts_data += [(h, "mastostats." + h + ".csv") for h in other_hosts]
 
-# # Load secrets from secrets file
-# secrets_filepath = "secrets/secrets.txt"
-# uc_client_id = get_parameter("uc_client_id",     secrets_filepath)
-# uc_client_secret = get_parameter("uc_client_secret", secrets_filepath)
-# uc_access_token = get_parameter("uc_access_token",  secrets_filepath)
 
-# # Initialise Mastodon API
-# mastodon = Mastodon(
-#     client_id=uc_client_id,
-#     client_secret=uc_client_secret,
-#     access_token=uc_access_token,
-#     api_base_url='https://' + mastodon_hostname,
-# )
+if '--no-fetch' in sys.argv:
+    print("--no-fetch specified, so not fetching data from servers")
+else:
+    fetch_data_and_write(hosts_data)
 
-# fetch_data_and_write(hosts_data)
-msg = generate_graph_and_msg(hosts_data)
+msg = generate_graph_and_msg(hosts_data, 'graph.png')
 print(msg)
+
+if '--no-upload' in sys.argv:
+    print("--no-upload specified, so not upload stats toot to server")
+else:
+    create_stats_toot(msg, mastodon_hostname, 'graph.png')
+
 exit()
 
 # # Load CSV file
