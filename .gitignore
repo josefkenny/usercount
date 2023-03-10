@@ -4,7 +4,7 @@ secrets/passwd
 secrets/email
 
 # Generated files
-graph.png
+graph*.png
 mastostats*.csv
 usercount.csv
 

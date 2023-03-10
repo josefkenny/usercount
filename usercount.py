@@ -85,13 +85,17 @@ def text_inc(num, kind):
         return ' +' + str(num) + ' ' + kind
 
 
-def stats_to_image(siteName, csvName, ax):
-    ax.yaxis.label.set_text(siteName)
+def csv_to_image(siteName, csvName, ax):
     # print(siteName, csvName)
-    df = pd.read_csv(csvName, names=['timestamp', 'usercount', 'tootscount'],
-                     skiprows=1, index_col='timestamp', on_bad_lines='skip')
-    df.index = pd.to_datetime(df.index, unit='s')
-    df = df.resample('1h').mean().ffill()
+    df_orig = pd.read_csv(csvName, names=['timestamp', 'usercount', 'tootscount'],
+                          skiprows=1, index_col='timestamp', on_bad_lines='skip')
+    df_orig.index = pd.to_datetime(df_orig.index, unit='s')
+    return stats_to_image(siteName, df_orig, ax)
+
+
+def stats_to_image(siteName, df_orig, ax):
+    ax.yaxis.label.set_text(siteName)
+    df = df_orig.resample('1h').mean().ffill()
     if (df.shape[0] == 0):
         return 'no data yet'
 
@@ -127,7 +131,7 @@ def stats_to_image(siteName, csvName, ax):
         except:
             pass
 
-    return s
+    return s, df_orig
 
 
 def generate_graph_and_msg(hosts_data, imageName):
@@ -135,10 +139,21 @@ def generate_graph_and_msg(hosts_data, imageName):
                             constrained_layout=True)
     fig.set_size_inches(24, 12)
     msg = ''
+    dfs = []
     for (i, (hostname, csvname)) in enumerate(hosts_data):
-        s = stats_to_image(hostname, csvname, axs[int(i/3), i % 3])
+        s, df = csv_to_image(hostname, csvname, axs[int(i/3), i % 3])
         msg += hostname + ': ' + s + '\n'
+        dfs.append(df)
+
     plt.savefig(imageName, dpi=100)
+
+    df_merged = dfs[0]
+    for i in range(1, len(dfs)):
+        df_merged.add(dfs[i], fill_value=0)
+    fig, axs = plt.subplots()
+    s, _ = stats_to_image('all', df_merged, axs)
+    print(s)
+    plt.savefig('graphall.png', dpi=100)
     return msg
 
 
@@ -199,7 +214,7 @@ else:
 msg = generate_graph_and_msg(hosts_data, 'graph.png')
 print(msg)
 
-if '--no-upload' in sys.argv:
-    print("--no-upload specified, so not upload stats toot to server")
-else:
-    create_stats_toot(msg, mastodon_hostname, 'graph.png')
+# if '--no-upload' in sys.argv:
+#     print("--no-upload specified, so not upload stats toot to server")
+# else:
+#     create_stats_toot(msg, mastodon_hostname, 'graph.png')
