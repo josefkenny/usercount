@@ -80,9 +80,9 @@ def fetch_data_and_write(hosts_data):
 
 def text_inc(num, kind):
     if num < 0:
-        return ' ' + str(num) + ' ' + kind
+        return ' ' + str(num) + kind
     else:
-        return ' +' + str(num) + ' ' + kind
+        return ' +' + str(num) + kind
 
 
 def csv_to_image(siteName, csvName, ax):
@@ -111,9 +111,9 @@ def stats_to_image(siteName, df_orig, ax, with_total=True):
         oneDay = df.index.max() - dt.timedelta(days=1)
         oneHour = df.index.max() - dt.timedelta(hours=1)
         try:
-            s += text_inc(lastUsers - int(df['usercount'][oneWeek]), 'week')
-            s += text_inc(lastUsers - int(df['usercount'][oneDay]), 'day')
-            s += text_inc(lastUsers - int(df['usercount'][oneHour]), 'hour')
+            s += text_inc(lastUsers - int(df['usercount'][oneWeek]), 'w')
+            s += text_inc(lastUsers - int(df['usercount'][oneDay]), 'd')
+            s += text_inc(lastUsers - int(df['usercount'][oneHour]), 'h')
         except:
             pass
 
@@ -138,7 +138,7 @@ def stats_to_image(siteName, df_orig, ax, with_total=True):
             dfweek.tootscountDeriv.plot(ax=ax, style='g-', xlabel='')
             dfweek.usercountDeriv.plot(ax=ax, style='r-', secondary_y=True, xlabel='')
             ax.legend([ax.get_lines()[0], ax.right_ax.get_lines()[0]],
-                    ['User hourly increase', 'Toots per hour'])
+                    ['Toots per hour', 'User hourly increase'])
 
 
     return s, df_orig
@@ -172,6 +172,7 @@ def generate_graph_and_msg(hosts_data, imageName):
     # fig.set_size_inches(8, 6)
     s, _ = stats_to_image('all', df_merged, axs, False)
     print(s)
+    msg = 'all: ' + s + '\n' + msg
     plt.savefig('graphall.png', dpi=100)
     return msg
 
