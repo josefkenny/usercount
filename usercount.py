@@ -86,14 +86,17 @@ def text_inc(num, kind):
 
 
 def csv_to_image(siteName, csvName, ax):
-    # print(siteName, csvName)
-    df_orig = pd.read_csv(csvName, names=['timestamp', 'usercount', 'tootscount'],
-                          skiprows=1, index_col='timestamp', on_bad_lines='skip')
-    df_orig.index = pd.to_datetime(df_orig.index, unit='s')
-    return stats_to_image(siteName, df_orig, ax)
+    try:
+        # print(siteName, csvName)
+        df_orig = pd.read_csv(csvName, names=['timestamp', 'usercount', 'tootscount'],
+                              skiprows=1, index_col='timestamp', on_bad_lines='skip')
+        df_orig.index = pd.to_datetime(df_orig.index, unit='s')
+        return stats_to_image(siteName, df_orig, ax)
+    except:
+        return 'no data found', None
 
 
-def stats_to_image(siteName, df_orig, ax):
+def stats_to_image(siteName, df_orig, ax, with_total=True):
     ax.yaxis.label.set_text(siteName)
     df = df_orig.resample('1h').mean().ffill()
     if (df.shape[0] == 0):
@@ -107,29 +110,36 @@ def stats_to_image(siteName, df_orig, ax):
         oneWeek = df.index.max() - dt.timedelta(days=7)
         oneDay = df.index.max() - dt.timedelta(days=1)
         oneHour = df.index.max() - dt.timedelta(hours=1)
-        for c in ['usercount', 'tootscount']:
-            df[c + 'Deriv'] = df[c].diff()
-
-        ax3 = ax.twinx()
-        ax3.spines['right'].set_position(('axes', 1.1))
-        ax3.set_frame_on(True)
-        ax3.patch.set_visible(False)
-
-        dfweek = df[(df.index >= oneWeek)]
-        dfweek.usercount.plot(ax=ax, style='b-', xlabel='')
-        dfweek.usercountDeriv.plot(
-            ax=ax, style='r-', secondary_y=True, xlabel='')
-        dfweek.tootscountDeriv.plot(ax=ax3, style='g-', xlabel='')
-
-        ax3.legend([ax.get_lines()[0], ax.right_ax.get_lines()[0], ax3.get_lines()[0]],
-                   ['Number of users', 'User hourly increase', 'Toots per hour'])
-
         try:
             s += text_inc(lastUsers - int(df['usercount'][oneWeek]), 'week')
             s += text_inc(lastUsers - int(df['usercount'][oneDay]), 'day')
             s += text_inc(lastUsers - int(df['usercount'][oneHour]), 'hour')
         except:
             pass
+
+        for c in ['usercount', 'tootscount']:
+            df[c + 'Deriv'] = df[c].diff()
+
+        dfweek = df[(df.index >= oneWeek)]
+
+        if with_total:
+            ax3 = ax.twinx()
+            ax3.spines['right'].set_position(('axes', 1.1))
+            ax3.set_frame_on(True)
+            ax3.patch.set_visible(False)
+
+            dfweek.usercount.plot(ax=ax, style='b-', xlabel='')
+            dfweek.usercountDeriv.plot(ax=ax, style='r-', secondary_y=True, xlabel='')
+            dfweek.tootscountDeriv.plot(ax=ax3, style='g-', xlabel='')
+
+            ax3.legend([ax.get_lines()[0], ax.right_ax.get_lines()[0], ax3.get_lines()[0]],
+                    ['Number of users', 'User hourly increase', 'Toots per hour'])
+        else:
+            dfweek.tootscountDeriv.plot(ax=ax, style='g-', xlabel='')
+            dfweek.usercountDeriv.plot(ax=ax, style='r-', secondary_y=True, xlabel='')
+            ax.legend([ax.get_lines()[0], ax.right_ax.get_lines()[0]],
+                    ['User hourly increase', 'Toots per hour'])
+
 
     return s, df_orig
 
@@ -147,17 +157,26 @@ def generate_graph_and_msg(hosts_data, imageName):
 
     plt.savefig(imageName, dpi=100)
 
-    df_merged = dfs[0]
-    for i in range(1, len(dfs)):
-        df_merged.add(dfs[i], fill_value=0)
+    df00 = pd.concat(dfs) #.sort_index()
+    grouped = df00.groupby(df00.index)
+    df_merged = grouped.sum()
+    # dfmh = df_merged.resample('1h').mean().ffill()
+    # for c in ['usercount', 'tootscount']:
+    #     dfmh[c + 'Deriv'] = dfmh[c].diff()
+    # fig, ax = plt.subplots()
+    # dfmh = dfmh[(dfmh.index >= dfmh.index.max() - dt.timedelta(days=7))]
+    # dfmh.usercountDeriv.plot(ax=ax, style='r-', secondary_y=True)
+    # dfmh.tootscountDeriv.plot(ax=ax, style='g-')    
+
     fig, axs = plt.subplots()
-    s, _ = stats_to_image('all', df_merged, axs)
+    # fig.set_size_inches(8, 6)
+    s, _ = stats_to_image('all', df_merged, axs, False)
     print(s)
     plt.savefig('graphall.png', dpi=100)
     return msg
 
 
-def create_stats_toot(toot_text, mastodon_hostname, file_to_upload):
+def create_stats_toot(toot_text, mastodon_hostname, files_to_upload):
     # Load secrets from secrets file
     secrets_filepath = "secrets/secrets.txt"
     uc_client_id = get_parameter("uc_client_id",     secrets_filepath)
@@ -172,12 +191,15 @@ def create_stats_toot(toot_text, mastodon_hostname, file_to_upload):
         api_base_url='https://' + mastodon_hostname,
     )
 
-    # Upload chart
-    print("Uploading %s..." % file_to_upload)
-    media_dict = mastodon.media_post(file_to_upload, "image/png")
+    media_ids = []
+    for file_to_upload in files_to_upload:
+        # Upload chart
+        print("Uploading %s..." % file_to_upload)
+        media_dict = mastodon.media_post(file_to_upload, "image/png")
 
-    print("Uploaded file, returned:")
-    print(str(media_dict))
+        print("Uploaded file, returned:")
+        print(str(media_dict))
+        media_ids.append(media_dict)
 
     ###############################################################################
     # T  O  O  T !
@@ -188,7 +210,7 @@ def create_stats_toot(toot_text, mastodon_hostname, file_to_upload):
     mastodon.status_post(
         toot_text,
         in_reply_to_id=None,
-        media_ids=[media_dict],
+        media_ids=media_ids,
         sensitive=False,
         visibility='unlisted')
 
@@ -214,7 +236,7 @@ else:
 msg = generate_graph_and_msg(hosts_data, 'graph.png')
 print(msg)
 
-# if '--no-upload' in sys.argv:
-#     print("--no-upload specified, so not upload stats toot to server")
-# else:
-#     create_stats_toot(msg, mastodon_hostname, 'graph.png')
+if '--no-upload' in sys.argv:
+    print("--no-upload specified, so not upload stats toot to server")
+else:
+    create_stats_toot(msg, mastodon_hostname, ['graph.png', 'graphall.png'])
