@@ -1,6 +1,10 @@
 # We need this to make the script work on some versions of gnuplot
 set term dumb
 
+if (!exists("csvname")) csvname="mastostats.csv"
+if (!exists("graphname")) graphname="graph.png"
+if (!exists("servername")) servername="tooot.im"
+
 # derivative functions.  Return 1/0 for first point, otherwise delta y or (delta y)/(delta x)
 d(y) = ($0 == 0) ? (y1 = y, 1/0) : (y2 = y1, y1 = y, y1-y2)
 d2(x,y) = ($0 == 0) ? (x1 = x, y1 = y, 1/0) : (x2 = x1, x1 = x, y2 = y1, y1 = y, (y1-y2)/(x1-x2))
@@ -8,7 +12,7 @@ d2(x,y) = ($0 == 0) ? (x1 = x, y1 = y, 1/0) : (x2 = x1, x1 = x, y2 = y1, y1 = y,
 # Set length of time for the entire graph
 day = 24*60*60
 week = 7*day
-timespan = day
+timespan = week
 
 # Set tic width
 tic_width = day
@@ -23,17 +27,17 @@ set datafile separator ","
 set xrange [time(0) - timespan:]
 
 # Plot 'usercount' of the past week and get bounds (for GRAPH 1 y1)
-plot "mastostats.csv" using 1:2
+plot csvname using 1:2
 usercountlow = GPVAL_DATA_Y_MIN
 usercounthigh = GPVAL_DATA_Y_MAX
 
 # Plot derivative of 'usercount' of the past week and get bounds (for GRAPH 1 y2)
-plot "mastostats.csv" using ($1):(d($2))
+plot csvname using ($1):(d($2))
 uc_derivative_low = GPVAL_DATA_Y_MIN
 uc_derivative_high = GPVAL_DATA_Y_MAX
 
 # Plot derivative of 'tootscount' of the past week and get bounds (for GRAPH 2 y1)
-plot "mastostats.csv" using ($1):(d($3))
+plot csvname using ($1):(d($3))
 tootslow  = GPVAL_DATA_Y_MIN
 tootshigh = GPVAL_DATA_Y_MAX
 tootslast = GPVAL_DATA_X_MAX
@@ -43,8 +47,8 @@ tootslast = GPVAL_DATA_X_MAX
 ###############################################################################
 
 # Set up our fonts and such
-set terminal png truecolor size 1464,660 enhanced font "./fonts/RobotoCond.ttf" 17 background rgb "#282d37"
-set output 'graph.png'
+set terminal png truecolor size 1464,330 enhanced font "./fonts/RobotoCond.ttf" 12 background rgb "#282d37"
+set output graphname
 
 # Set border colour and line width
 set border lw 3 lc rgb "white"
@@ -64,7 +68,7 @@ set key textcolor rgb "white"
 set tics front
 
 # Set layout into multiplot mode (2 rows by 1 column = 2 plots)
-set multiplot layout 2, 1
+set multiplot layout 1, 2
 
 # Make sure we don't draw tics on the opposite side of the graph
 set xtics nomirror
@@ -83,7 +87,7 @@ rmarg = 9       # Right margin
 
 
 ###############################################################################
-# GRAPH 1 
+# GRAPH 1
 # Current usercount & the derivative (rate of new users joining) (last 7 days)
 ###############################################################################
 
@@ -94,12 +98,14 @@ set rmargin rmarg
 
 # Set Y axis
 set yr [usercountlow:usercounthigh]
-set ylabel "Number of users" textcolor rgb "#93ddff" offset 1,0,0
+if (usercountlow == usercounthigh) set yr [usercountlow:usercounthigh+1]
+set ylabel servername."\nNumber of users" textcolor rgb "#93ddff" offset 1,0,0
 
 # Set Y2 axis
 set y2r [0:uc_derivative_high * 2]
+if (uc_derivative_high == 0) set y2r [-1:1]
 set y2tics 10 nomirror
-set y2label 'Hourly increase' textcolor rgb "#7ae9d8" 
+set y2label 'Hourly increase' textcolor rgb "#7ae9d8"
 
 # Set X axis
 set xdata time
@@ -119,7 +125,7 @@ set style line 12 lc rgb "#FEFEFE" lt 1 lw 5
 set grid
 
 # Plot the graph
-plot "mastostats.csv" every ::1 using 1:2 w filledcurves x1 title '' lc rgb "#2e85ad", \
+plot csvname every ::1 using 1:2 w filledcurves x1 title '' lc rgb "#2e85ad", \
         '' u ($1):(d($2)) w filledcurves x1 title '' axes x1y2 fs transparent solid 0.7 noborder lc rgb "#7ae9d8"
 
 
@@ -144,7 +150,7 @@ set yr [0:tootshigh]
 set ylabel "Toots per hour" textcolor rgb "#E9967A"
 
 # Set X axis
-set xdata time 
+set xdata time
 set xrange [time(0) - timespan:]
 set timefmt "%s"
 set format x "%a\n%d %b"
@@ -155,7 +161,7 @@ set style line 12 lc rgb "#FEFEFE" lt 1 lw 5
 set grid
 
 # Plot the graph
-plot "mastostats.csv" every ::1 using ($1):(d($3)) w filledcurves x1 title '' lc rgb "#E9967A"
+plot csvname every ::1 using ($1):(d($3)) w filledcurves x1 title '' lc rgb "#E9967A"
 
 
 # I think this needs to be here for some reason
